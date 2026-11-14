@@ -19,11 +19,16 @@ class TerritoryApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Territory',
-      debugShowCheckedModeBanner: false,
-      theme: buildTheme(),
-      home: HomeScreen(store: store),
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) => MaterialApp(
+        title: 'Territory',
+        debugShowCheckedModeBanner: false,
+        theme: buildTheme(Brightness.light),
+        darkTheme: buildTheme(Brightness.dark),
+        themeMode: store.darkMode ? ThemeMode.dark : ThemeMode.light,
+        home: HomeScreen(store: store),
+      ),
     );
   }
 }

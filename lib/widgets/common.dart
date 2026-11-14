@@ -10,7 +10,8 @@ class PillButton extends StatelessWidget {
     required this.color,
     required this.onTap,
     this.height = 46,
-    this.fontSize = 14,
+    this.fontSize = AppText.body,
+    this.width,
   });
 
   final String label;
@@ -18,25 +19,29 @@ class PillButton extends StatelessWidget {
   final VoidCallback onTap;
   final double height;
   final double fontSize;
+  final double? width;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: color,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
+    return SizedBox(
+      width: width,
+      child: Material(
+        color: color,
         borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Container(
-          height: height,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.ink.withValues(alpha: 0.6)),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w500),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Container(
+            height: height,
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w500,
+                color: AppColors.ink,
+              ),
+            ),
           ),
         ),
       ),
@@ -46,24 +51,30 @@ class PillButton extends StatelessWidget {
 
 /// Circular outlined icon button (back, eye, pause).
 class RoundIconButton extends StatelessWidget {
-  const RoundIconButton({super.key, required this.icon, required this.onTap});
+  const RoundIconButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+    required Alignment position,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final ink = context.palette.ink;
     return InkResponse(
       onTap: onTap,
       radius: 22,
       child: Container(
-        width: 30,
-        height: 30,
+        width: 48,
+        height: 48,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: AppColors.ink, width: 1.2),
+          border: Border.all(color: ink, width: 2.5),
         ),
-        child: Icon(icon, size: 17, color: AppColors.ink),
+        child: Icon(icon, size: 30, color: ink),
       ),
     );
   }
@@ -71,30 +82,36 @@ class RoundIconButton extends StatelessWidget {
 
 /// Card with a title and a column of buttons (pause + solved dialogs).
 class GameDialog extends StatelessWidget {
-  const GameDialog({super.key, required this.title, required this.buttons});
+  const GameDialog({
+    super.key,
+    required this.title,
+    required this.buttons,
+    required double fontSize,
+  });
 
   final String title;
   final List<Widget> buttons;
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     return Dialog(
-      backgroundColor: AppColors.dialog,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 40),
+      backgroundColor: p.dialog,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 30),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: AppColors.ink, width: 1.2),
+        side: BorderSide(color: p.ink, width: 3),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(title, style: const TextStyle(fontSize: 13)),
-            const SizedBox(height: 14),
+            Text(title, style: const TextStyle(fontSize: AppText.body)),
+            const SizedBox(height: 20),
             for (final b in buttons) ...[
               b,
-              if (b != buttons.last) const SizedBox(height: 10),
+              if (b != buttons.last) const SizedBox(height: 25),
             ],
           ],
         ),

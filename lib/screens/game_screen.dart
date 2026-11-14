@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../game/game_controller.dart';
 import '../game/level.dart';
 import '../storage.dart';
@@ -47,9 +46,8 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _check() async {
     switch (game.check()) {
       case CheckResult.incomplete:
-        _snack('Some cells are still empty');
       case CheckResult.wrong:
-        _snack('Not quite - check your regions');
+        _snack(game.message);
       case CheckResult.solved:
         await widget.store.markCompleted(widget.levelNumber);
         if (!mounted) return;
@@ -64,19 +62,22 @@ class _GameScreenState extends State<GameScreen> {
       barrierDismissible: false,
       builder: (dialogContext) => GameDialog(
         title: 'Game paused',
+        fontSize: AppText.body,
         buttons: [
           PillButton(
             label: 'Resume',
             color: AppColors.green,
             height: 36,
-            fontSize: 12,
+            width: 287,
+            fontSize: AppText.body,
             onTap: () => Navigator.of(dialogContext).pop(),
           ),
           PillButton(
             label: 'Restart',
             color: AppColors.yellow,
             height: 36,
-            fontSize: 12,
+            width: 287,
+            fontSize: AppText.body,
             onTap: () {
               game.restart();
               Navigator.of(dialogContext).pop();
@@ -86,7 +87,8 @@ class _GameScreenState extends State<GameScreen> {
             label: 'Exit',
             color: AppColors.coral,
             height: 36,
-            fontSize: 12,
+            width: 287,
+            fontSize: AppText.body,
             onTap: () {
               Navigator.of(dialogContext).pop();
               Navigator.of(context).pop();
@@ -108,10 +110,11 @@ class _GameScreenState extends State<GameScreen> {
         buttons: [
           if (hasNext)
             PillButton(
-              label: 'Next level',
+              label: 'Next',
               color: AppColors.green,
               height: 36,
-              fontSize: 12,
+              width: 287,
+              fontSize: AppText.body,
               onTap: () {
                 Navigator.of(dialogContext).pop();
                 Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
@@ -123,16 +126,18 @@ class _GameScreenState extends State<GameScreen> {
               },
             ),
           PillButton(
-            label: 'Levels',
+            label: 'Home',
             color: AppColors.yellow,
             height: 36,
-            fontSize: 12,
+            width: 287,
+            fontSize: AppText.body,
             onTap: () {
               Navigator.of(dialogContext).pop();
               Navigator.of(context).pop();
             },
           ),
         ],
+        fontSize: AppText.body,
       ),
     );
   }
@@ -150,39 +155,58 @@ class _GameScreenState extends State<GameScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(
                   children: [
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 18),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         RoundIconButton(
                           icon: Icons.arrow_back,
+                          position: Alignment.centerLeft,
                           onTap: () => Navigator.of(context).pop(),
                         ),
                         Expanded(
-                          child: Column(
-                            children: [
-                              Text(
-                                game.level.difficulty,
-                                style: const TextStyle(fontSize: 10),
-                              ),
-                              Text(
-                                'Level ${widget.levelNumber}',
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w600,
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  game.level.kind
+                                      .title, // "Easy", "Medium", "Hard", "Expert"
+                                  style: const TextStyle(
+                                    fontSize: AppText.heading,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 40),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
                         RoundIconButton(
                           icon: game.showSymbols
                               ? Icons.visibility_outlined
                               : Icons.visibility_off_outlined,
                           onTap: game.toggleSymbols,
+                          position: Alignment.centerLeft,
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 24),
+                       RoundIconButton(
+  icon: widget.store.darkMode
+      ? Icons.light_mode_outlined
+      : Icons.dark_mode_outlined,
+  onTap: widget.store.toggleDark,
+  position: Alignment.center,
+),
+                        const SizedBox(width: 24),
                         RoundIconButton(
                           icon: Icons.pause,
+                          position: Alignment.centerRight,
                           onTap: _showPause,
                         ),
                       ],
@@ -191,23 +215,32 @@ class _GameScreenState extends State<GameScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.schedule, size: 14),
+                        const Icon(Icons.schedule, size: AppText.body),
                         const SizedBox(width: 4),
                         Text(
                           _time(game.seconds),
-                          style: const TextStyle(fontSize: 11),
+                          style: const TextStyle(
+                              fontSize: AppText.body,
+                              fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Board(game: game),
                     const SizedBox(height: 28),
-                    SizedBox(
-                      width: 150,
-                      child: PillButton(
-                        label: 'Check',
-                        color: AppColors.green,
-                        onTap: _check,
+                    Visibility(
+                      visible: game.isFull,
+                      maintainSize: true,
+                      maintainAnimation: true,
+                      maintainState: true,
+                      child: SizedBox(
+                        width: 150,
+                        child: PillButton(
+                          label: 'Check',
+                          color: AppColors.green,
+                          onTap: _check,
+                          width: 180,
+                        ),
                       ),
                     ),
                   ],

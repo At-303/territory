@@ -1,21 +1,47 @@
 import 'package:flutter/material.dart';
-
+import '../game/level.dart';
 import '../storage.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/shape_painter.dart';
 import 'game_screen.dart';
-import 'levels_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key, required this.store});
 
   final ProgressStore store;
 
-  void _play(BuildContext context, int level) {
+    void _play(BuildContext context, int level) {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => GameScreen(store: store, levelNumber: level),
     ));
+  }
+
+  Future<void> _newGame(BuildContext context) async {
+    const colors = [
+      AppColors.green,
+      AppColors.yellow,
+      AppColors.coral,
+      AppColors.blue,
+    ];
+    final picked = await showDialog<Difficulty>(
+      context: context,
+      builder: (dialogContext) => GameDialog(
+        title: 'Choose difficulty',
+        buttons: [
+          for (final d in Difficulty.values)
+            PillButton(
+              label: '${d.title}  ${d.gridSize}x${d.gridSize}',
+              color: colors[d.index],
+              width: 220,
+              onTap: () => Navigator.of(dialogContext).pop(d),
+            ),
+        ], fontSize: AppText.body,
+      ),
+    );
+    if (picked != null && context.mounted) {
+      _play(context, store.nextLevelIn(picked));
+    }
   }
 
   @override
@@ -30,31 +56,21 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 children: [
                   const Expanded(child: _Hero()),
+                  const SizedBox(height: 56),
                   PillButton(
                     label: 'Continue',
                     color: AppColors.blue,
-                    height: 50,
-                    onTap: () => _play(context, store.lastLevel),
+                    height: 80,
+                    onTap: () => _play(context, store.lastLevel), width: 285, 
                   ),
                   const SizedBox(height: 12),
                   PillButton(
                     label: 'New',
                     color: AppColors.purple,
-                    height: 50,
-                    onTap: () => _play(context, store.nextLevel),
+                    height: 80,                 
+                   onTap: () => _newGame(context), width: 285,
                   ),
-                  const SizedBox(height: 12),
-                  PillButton(
-                    label: 'Levels',
-                    color: AppColors.yellow,
-                    height: 50,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => LevelsScreen(store: store),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 56),
+                  const SizedBox(height: 56),                                
                 ],
               ),
             ),
@@ -69,68 +85,93 @@ class HomeScreen extends StatelessWidget {
 class _Hero extends StatelessWidget {
   const _Hero();
 
-  // x, y (fractions), style (-1 = empty tile), rotation in turns
-  static const _tiles = <(double, double, int, double)>[
-    (0.42, 0.04, 0, 0.04),
-    (0.70, 0.02, -1, 0.0),
-    (0.58, 0.14, 3, -0.03),
-    (0.80, 0.16, -1, 0.0),
-    (0.66, 0.30, 2, 0.02),
-    (0.42, 0.26, -1, 0.0),
-    (0.74, 0.46, 1, 0.0),
-    (0.40, 0.52, 1, 0.03),
-    (0.56, 0.48, 3, 0.0),
-    (0.20, 0.60, -1, 0.0),
-    (0.36, 0.68, 2, -0.02),
-    (0.62, 0.72, -1, 0.0),
-    (0.52, 0.86, 0, 0.03),
-    (0.78, 0.84, -1, 0.0),
+  // One letter per tile:
+  //   .  no tile            _  empty tile
+  //   s  blue square        c  yellow circle     t  purple triangle
+  //   h  coral heart        x  green sparkle
+  //   UPPERCASE = same colour, no symbol (S C T H X)
+  static const _pattern = [
+    '..s_.',
+    '.._H_',
+    '.__T_',
+    'Ch_c_',
+    '__t_.',
+    '.S__.',
+    '.._..',
   ];
+
+  static const _tilt = -0.33; // radians, about -19 degrees
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, c) {
-        const tile = 30.0;
-        return Stack(
-          children: [
-            for (final t in _tiles)
-              Positioned(
-                left: t.$1 * (c.maxWidth - tile),
-                top: t.$2 * (c.maxHeight - tile),
-                child: Transform.rotate(
-                  angle: t.$4 * 6.2832,
-                  child: Container(
-                    width: tile,
-                    height: tile,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: t.$3 < 0
-                          ? Colors.transparent
-                          : regionColors[t.$3 % regionColors.length],
-                      borderRadius: BorderRadius.circular(7),
-                      border: Border.all(
-                        color: AppColors.ink
-                            .withValues(alpha: t.$3 < 0 ? 0.12 : 0.5),
-                        width: 0.8,
-                      ),
+    final w = MediaQuery.sizeOf(context).width;
+    final size = w * 0.12; // tile size
+    final gap = w * 0.024; // space between tiles
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Tile grid: centred 75% across, a bit above the middle,
+        // and allowed to run off the right edge of the screen.
+        OverflowBox(
+          alignment: const Alignment(4, 0.5),
+          maxWidth: double.infinity,
+          maxHeight: double.infinity,
+          child: Transform.rotate(
+            angle: _tilt,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final row in _pattern)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: gap),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final ch in row.split(''))
+                          Padding(
+                            padding: EdgeInsets.only(right: gap),
+                           child: _tile(context, ch, size),
+                          ),
+                      ],
                     ),
-                    child: t.$3 < 0
-                        ? null
-                        : ShapeIcon(style: t.$3, size: tile * 0.4),
                   ),
-                ),
-              ),
-            const Align(
-              alignment: Alignment(-1, -0.35),
-              child: Text(
-                'Territory',
-                style: TextStyle(fontSize: 42, fontWeight: FontWeight.w400),
-              ),
+              ],
             ),
-          ],
-        );
-      },
+          ),
+        ),
+        const Align(
+          alignment: Alignment(-1, -0.35),
+          child: Text(
+            'Territory',
+            style: TextStyle(
+              fontSize: AppText.display,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+ Widget _tile(BuildContext context, String ch, double size) {
+    if (ch == '.') return SizedBox(width: size, height: size);
+    final style = 'scthx'.indexOf(ch.toLowerCase()); // -1 for '_'
+    final empty = style < 0;
+    final symbol = !empty && ch == ch.toLowerCase();
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: empty ? Colors.transparent : regionColors[style],
+        borderRadius: BorderRadius.circular(size * 0.22),
+        border: Border.all(
+          color: (empty ? context.palette.ink : AppColors.ink)
+              .withValues(alpha: empty ? 0.2 : 0.35),
+          width: 0.8,
+        ),
+      ),
+      child: symbol ? ShapeIcon(style: style, size: size * 0.42) : null,
     );
   }
 }

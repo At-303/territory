@@ -8,7 +8,8 @@ class ProgressStore extends ChangeNotifier {
       : completed = (_prefs.getStringList('completed') ?? const <String>[])
             .map(int.parse)
             .toSet(),
-        lastLevel = _prefs.getInt('lastLevel') ?? 1;
+        lastLevel = _prefs.getInt('lastLevel') ?? 1,
+        darkMode = _prefs.getBool('darkMode') ?? false;
 
   static Future<ProgressStore> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -18,13 +19,27 @@ class ProgressStore extends ChangeNotifier {
   final SharedPreferences _prefs;
   final Set<int> completed;
   int lastLevel;
+  bool darkMode;
 
+Future<void> toggleDark() async {
+    darkMode = !darkMode;
+    await _prefs.setBool('darkMode', darkMode);
+    notifyListeners();
+  }
   /// First level that has not been completed yet.
   int get nextLevel {
     for (var n = 1; n <= kLevelCount; n++) {
       if (!completed.contains(n)) return n;
     }
     return kLevelCount;
+  }
+
+ /// First unfinished level of [d]; the first level of [d] if all are done.
+  int nextLevelIn(Difficulty d) {
+    for (var n = d.firstLevel; n <= d.lastLevel; n++) {
+      if (!completed.contains(n)) return n;
+    }
+    return d.firstLevel;
   }
 
   Future<void> markCompleted(int level) async {

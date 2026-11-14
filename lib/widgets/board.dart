@@ -43,7 +43,8 @@ class Board extends StatelessWidget {
                     child: Row(
                       children: [
                         for (var c = 0; c < size; c++)
-                          Expanded(child: _Cell(game: game, index: r * size + c)),
+                          Expanded(
+                              child: _Cell(game: game, index: r * size + c)),
                       ],
                     ),
                   ),
@@ -66,24 +67,38 @@ class _Cell extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = game.cells[index];
     final clue = game.clueAt[index];
+    final selected = game.selection.contains(index);
+    final error = game.errorCells.contains(index);
 
+    // Priority: blocked, error (red), confirmed region, numbered cell,
+    // selection (lighter tint of the region colour), empty.
     Color fill;
     if (value == kBlocked) {
       fill = Colors.black;
-    } else if (value == kEmpty) {
-      fill = Colors.white;
+    } else if (error) {
+      fill = AppColors.error;
+    } else if (value >= 0) {
+      fill = regionColors[_styleOf(value)];
+    } else if (clue != null) {
+      fill = regionColors[clue.style];
+    } else if (selected) {
+      fill = Color.lerp(
+        context.palette.cell,
+        regionColors[game.activeStyle],
+        0.55,
+      )!;
     } else {
-      final style = clue?.style ?? _styleOf(value);
-      fill = regionColors[style];
+      fill = context.palette.cell;
     }
 
     Widget? child;
     if (clue != null) {
       child = Text(
         '${clue.size}',
-        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+            fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
       );
-    } else if (value >= 0 && game.showSymbols) {
+    } else if (value >= 0 && !error && game.showSymbols) {
       child = LayoutBuilder(
         builder: (context, c) => ShapeIcon(
           style: _styleOf(value),
@@ -103,8 +118,10 @@ class _Cell extends StatelessWidget {
           border: Border.all(
             color: value == kBlocked
                 ? Colors.black
-                : AppColors.ink.withValues(alpha: 0.55),
-            width: 0.8,
+                : (value >= 0 || clue != null || error
+                    ? AppColors.ink.withValues(alpha: 0.55)
+                    : context.palette.ink
+                        .withValues(alpha: selected ? 0.9 : 0.35)),
           ),
         ),
         child: child,
@@ -112,6 +129,5 @@ class _Cell extends StatelessWidget {
     );
   }
 
-  int _styleOf(int region) =>
-      game.level.clues.firstWhere((c) => c.region == region).style;
+  int _styleOf(int region) => game.level.clues[region].style;
 }
