@@ -17,8 +17,8 @@ Level tinyLevel() => Level(
       solution: const [0, 0, 0, 1, 1, 1, 2, 2, 2],
     );
 
-/// Selects the solution's cells of [region] the way a player would.
-void selectRegion(GameController g, int region) {
+/// Paints the solution's cells of [region] the way a player would.
+void paintRegion(GameController g, int region) {
   final clueCell = g.level.clueIndex(g.level.clues[region]);
   g.tap(clueCell);
   for (var i = 0; i < g.level.solution.length; i++) {
@@ -99,110 +99,140 @@ void main() {
   });
 
   group('GameController', () {
-    test('confirming a correct region locks it', () {
+    test('numbered cells start in their own region', () {
       final g = GameController(tinyLevel());
-      selectRegion(g, 0);
-      expect(g.check(), CheckResult.incomplete);
-      expect(g.cells.sublist(0, 3), [0, 0, 0]);
-      expect(g.completedRegions, 1);
-      expect(g.selection, isEmpty);
-      expect(g.activeClue, isNull);
+      expect(g.cells[0], 0);
+      expect(g.cells[3], 1);
+      expect(g.cells[6], 2);
+      expect(g.isFull, isFalse);
       g.dispose();
     });
 
-    test('a wrong region turns red and stays editable', () {
+    test('tap paints the active region and tapping again erases', () {
       final g = GameController(tinyLevel());
-      g.tap(3);
-      g.tap(4); // only 2 cells, needs 3
-      expect(g.check(), CheckResult.wrong);
-      expect(g.errorCells, {3, 4});
-      expect(g.message, contains('needs 3'));
-      expect(g.cells[3], kEmpty);
-      expect(g.selection, {3, 4});
+      g.tap(1); // no region picked yet: ignored
+      expect(g.cells[1], kEmpty);
 
-      g.tap(5); // keep editing
-      expect(g.errorCells, isEmpty);
-      expect(g.check(), CheckResult.incomplete);
-      expect(g.completedRegions, 1);
+      g.tap(0); // pick region 0
+      g.tap(1);
+      expect(g.cells[1], 0);
+      g.tap(1);
+      expect(g.cells[1], kEmpty);
       g.dispose();
     });
 
-    test('cells can be removed from the selection', () {
+    test('a numbered cell never changes owner', () {
       final g = GameController(tinyLevel());
+      g.tap(0);
+      g.tap(3); // picks region 1, does not paint
+      expect(g.cells[3], 1);
+      expect(g.activeClue, 1);
+      g.dispose();
+    });
+
+    test('painting over another region takes the cell', () {
+      final g = GameController(tinyLevel());
+      g.tap(0);
+      g.tap(4);
+      expect(g.cells[4], 0);
       g.tap(3);
       g.tap(4);
-      g.tap(4);
-      expect(g.selection, {3});
+      expect(g.cells[4], 1);
       g.dispose();
     });
 
-    test('undo reverses selection and confirmation', () {
+    test('check is refused while cells are empty', () {
       final g = GameController(tinyLevel());
-      selectRegion(g, 0);
-      g.check();
-      expect(g.completedRegions, 1);
-
-      g.undo(); // the confirmation
-      expect(g.completedRegions, 0);
-      expect(g.selection, {0, 1, 2});
-
-      g.undo(); // last tapped cell
-      expect(g.selection, {0, 1});
+      paintRegion(g, 0);
+      expect(g.isFull, isFalse);
+      expect(g.check(), CheckResult.incomplete);
+      expect(g.message, contains('Fill every cell'));
       g.dispose();
     });
 
-    test('solving every region wins', () {
+    test('filling everything correctly wins', () {
       final g = GameController(tinyLevel());
-      selectRegion(g, 0);
-      expect(g.check(), CheckResult.incomplete);
-      selectRegion(g, 1);
-      expect(g.check(), CheckResult.incomplete);
-      selectRegion(g, 2);
+      paintRegion(g, 0);
+      paintRegion(g, 1);
+      paintRegion(g, 2);
+      expect(g.isFull, isTrue);
+      expect(g.completedRegions, 3);
       expect(g.check(), CheckResult.solved);
       expect(g.solved, isTrue);
       g.dispose();
     });
 
-    test('final check with unassigned cells is incomplete', () {
+    test('wrong regions turn red, right ones do not', () {
       final g = GameController(tinyLevel());
-      selectRegion(g, 0);
-      g.check();
-      expect(g.check(), CheckResult.incomplete); // nothing selected
-      expect(g.message, contains('not in a region'));
+      // region 0 gets 4 cells, region 1 gets 2, region 2 is right.
+      g.tap(0);
+      g.tap(1);
+      g.tap(2);
+      g.tap(4);
+      g.tap(3);
+      g.tap(5);
+      paintRegion(g, 2);
+      expect(g.isFull, isTrue);
+
+      expect(g.check(), CheckResult.wrong);
+      expect(g.errorCells, {0, 1, 2, 4, 3, 5});
+      expect(g.message, contains('needs 3'));
+      expect(g.solved, isFalse);
+
+      g.tap(0); // next interaction clears the red
+      expect(g.errorCells, isEmpty);
       g.dispose();
     });
 
-    test('reset clears everything', () {
+    test('undo reverses paints and region switches', () {
       final g = GameController(tinyLevel());
-      selectRegion(g, 0);
-      g.check();
-      g.restart();
-      expect(g.completedRegions, 0);
+      g.tap(0); // switch
+      g.tap(1); // paint
+      expect(g.cells[1], 0);
+
+      g.undo();
+      expect(g.cells[1], kEmpty);
+      expect(g.activeClue, 0);
+
+      g.undo();
+      expect(g.activeClue, isNull);
       expect(g.canUndo, isFalse);
-      expect(g.cells.every((v) => v == kEmpty), isTrue);
       g.dispose();
     });
 
-    test('dragging adds cells and is one undo step', () {
+    test('dragging paints cells and is one undo step', () {
       final g = GameController(tinyLevel());
       g.beginDrag(3);
       g.dragTo(4);
       g.dragTo(5);
       g.endDrag();
-      expect(g.selection, {3, 4, 5});
-      g.undo();
-      expect(g.selection, isEmpty);
+      expect(g.cells.sublist(3, 6), [1, 1, 1]);
+
+      g.undo(); // the stroke
+      expect(g.cells[4], kEmpty);
+      expect(g.cells[5], kEmpty);
       g.dispose();
     });
 
-    test('a full generated level can be solved by its solution', () {
-      final g = GameController(generateLevel(1));
-      for (var r = 0; r < g.totalRegions; r++) {
-        selectRegion(g, r);
-        g.check();
-      }
-      expect(g.solved, isTrue);
+    test('reset clears everything', () {
+      final g = GameController(tinyLevel());
+      paintRegion(g, 0);
+      g.restart();
+      expect(g.cells[1], kEmpty);
+      expect(g.activeClue, isNull);
+      expect(g.canUndo, isFalse);
       g.dispose();
+    });
+
+    test('a generated level is solved by painting its solution', () {
+      for (final n in [1, 7, 13, 19]) {
+        final g = GameController(generateLevel(n));
+        for (var r = 0; r < g.totalRegions; r++) {
+          paintRegion(g, r);
+        }
+        expect(g.check(), CheckResult.solved, reason: 'level $n');
+        g.dispose();
+      }
     });
   });
 }
